@@ -6,6 +6,10 @@ from gui import app,youtube_screen,ui_youtube
 from PyQt5 import QtWidgets
 import traceback
 
+driver = webdriver.PhantomJS('phantomjs.exe')
+driver.set_window_position(0, 0)
+driver.set_window_size(0, 0)
+
 def OnExceptSignal(exc_type, exc_value, tb):
     exce = traceback.format_exception(exc_type,exc_value,tb)
     print("[Error dude] "+str(exce))
@@ -19,6 +23,9 @@ def download_file( url , filename):
         FILE_SIZE = int( REQUEST_FTP_FILE.headers.get( 'content-length' ) )
     except Exception as e:
         QtWidgets.QMessageBox.warning(youtube_screen,"NetWork error","Please check your internet connection",QtWidgets.QMessageBox.Ok)
+        ui_youtube.progress.hide()
+        ui_youtube.progress.setValue(0)
+        ui_youtube.progress_label.hide()
         return False
     RECIEVED_STATUS = int( 0 )
     with open( filename , 'wb' ) as chunk_file:
@@ -26,8 +33,8 @@ def download_file( url , filename):
             if buffer:
                 RECIEVED_STATUS += len( buffer )
                 chunk_file.write( buffer )
-                done = int( 50 * ( RECIEVED_STATUS / FILE_SIZE ) )
-                ui_youtube.progress.setValue(2*done)
+                done = int( 100 * ( RECIEVED_STATUS / FILE_SIZE ) )
+                ui_youtube.progress.setValue(done)
     QtWidgets.QMessageBox.information(youtube_screen,"Converted succesfully","The youtube video  is converted to mp3 successfully",QtWidgets.QMessageBox.Ok)
     ui_youtube.progress.hide()
     ui_youtube.progress.setValue(0)
@@ -35,26 +42,35 @@ def download_file( url , filename):
     return True
 
 def convert2mp3():
-    ui_youtube.progress.show()
-    ui_youtube.progress_label.show()
     video = ui_youtube.video_link_line_edit.text()
     id = video.find('?v=')+3
     if id == 2 :
         QtWidgets.QMessageBox.warning(youtube_screen,'Invalid youtube link','Please provide a valid youtube url',QtWidgets.QMessageBox.Ok)
         return False
+    
     vid = video[id:id+11]
-    driver = webdriver.PhantomJS('phantomjs.exe')
-    driver.set_window_position(0, 0)
-    driver.set_window_size(0, 0)
+    global driver
     payload = "http://api.convert2mp3.cc/?v="+ vid + "&f=mp3"
-    driver.get(payload)
-    elem = driver.find_element_by_class_name("videohref")
-    link = elem.get_attribute('href')
+    try:
+        driver.get(payload)
+        elem = driver.find_element_by_class_name("videohref")
+        link = elem.get_attribute('href')
+    except Exception as e:
+        print(str(e))
+        QtWidgets.QMessageBox.warning(youtube_screen,"NetWork error","Please check your internet connection",QtWidgets.QMessageBox.Ok)
+        return False
+
     file_name = QtWidgets.QFileDialog.getSaveFileName(youtube_screen, 'Save Mp3', 'song',initialFilter='.mp3',filter='.mp3')
-    if file_name:
+   
+    if file_name[0] != '':
+        ui_youtube.progress_label.show()
+        ui_youtube.progress.show()
         download_file(link,file_name[0]+file_name[1])
-    driver.close()
-    driver.quit()
+    
+    else:
+        ui_youtube.progress_label.hide()
+        ui_youtube.progress.hide()
+        
 
 ui_youtube.progress.hide()
 ui_youtube.progress_label.hide()
